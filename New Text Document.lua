@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
 -- إعدادات السرعة
-local DEFAULT_SPEED = 16
+local DEFAULT_SPEED = 50
 local DESIRED_SPEED = 100
 
 -- حالة التشغيل (OFF افتراضياً)
