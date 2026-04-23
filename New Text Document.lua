@@ -1,207 +1,159 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
 local player = Players.LocalPlayer
 
--- ====================== EGG COLLECTOR SETTINGS ======================
+-- ====================== [ الإعدادات ] ======================
 local collecting = false
-local collectedCount = 0
-local EGG_KEYWORDS = {"egg", "بيض", "easter", "collectible", "hunt", "token", "orb", "item"}
+local killAura = false
+local speedOn = false
 
--- ====================== SPEED & JUMP SETTINGS ======================
-local DEFAULT_SPEED = 50
+local EGG_KEYWORDS = {"egg", "بيض", "item", "collect", "drop", "gift"}
 local DESIRED_SPEED = 150
-local isEnabled = false -- speed/jump toggle
 
--- ====================== GUI SETUP ======================
+-- ====================== [ واجهة المستخدم - ألوان متداخلة ] ======================
 local gui = Instance.new("ScreenGui")
-gui.Name = "MarvinUtilityV2"
-gui.IgnoreGuiInset = true
+gui.Name = "Fares_Savage_V5"
+gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- ---------------------- Egg Collector Frame ----------------------
-local eggFrame = Instance.new("Frame")
-eggFrame.Size = UDim2.fromOffset(230, 70)
-eggFrame.Position = UDim2.fromOffset(20, 20)
-eggFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-eggFrame.BorderSizePixel = 0
-eggFrame.Draggable = true
-eggFrame.Parent = gui
-Instance.new("UICorner", eggFrame).CornerRadius = UDim.new(0, 10)
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(40, 40, 40)
-stroke.Thickness = 2
-stroke.Parent = eggFrame
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(280, 350)
+main.Position = UDim2.fromOffset(100, 100)
+main.BackgroundColor3 = Color3.fromRGB(45, 50, 70)
+main.BorderSizePixel = 0
+main.Active = true
+main.Draggable = true
+main.Parent = gui
 
-local eggBtn = Instance.new("TextButton")
-eggBtn.Size = UDim2.fromOffset(220, 50)
-eggBtn.Position = UDim2.fromOffset(5, 5)
-eggBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-eggBtn.Text = "🥚 START COLLECTING"
-eggBtn.TextColor3 = Color3.new(1, 1, 1)
-eggBtn.TextScaled = true
-eggBtn.Font = Enum.Font.GothamBold
-eggBtn.AutoButtonColor = true
-eggBtn.Parent = eggFrame
-Instance.new("UICorner", eggBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 15)
 
-local counter = Instance.new("TextLabel")
-counter.Size = UDim2.fromScale(1, 0.25)
-counter.Position = UDim2.fromScale(0, 1)
-counter.BackgroundTransparency = 1
-counter.Text = "Collected: 0"
-counter.TextColor3 = Color3.new(0.85, 0.85, 0.85)
-counter.TextScaled = true
-counter.Font = Enum.Font.GothamMedium
-counter.Parent = gui
+-- تدرج ألوان ناري (أزرق وبنفسجي محمر)
+local mainGradient = Instance.new("UIGradient")
+mainGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 100, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 50, 100))
+})
+mainGradient.Parent = main
 
--- ---------------------- Speed/Jump Frame ----------------------
-local speedFrame = Instance.new("Frame")
-speedFrame.Size = UDim2.fromOffset(200, 55)
-speedFrame.Position = UDim2.fromOffset(20, 110)
-speedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-speedFrame.BorderSizePixel = 0
-speedFrame.Draggable = true
-speedFrame.Parent = gui
-Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 8)
-local speedStroke = Instance.new("UIStroke")
-speedStroke.Color = Color3.fromRGB(60, 60, 60)
-speedStroke.Thickness = 2
-speedStroke.Parent = speedFrame
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 50)
+title.Text = "FARES SAVAGE V5"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.BackgroundTransparency = 1
+title.Parent = main
 
-local speedBtn = Instance.new("TextButton")
-speedBtn.Size = UDim2.fromOffset(190, 45)
-speedBtn.Position = UDim2.fromOffset(5, 5)
-speedBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-speedBtn.Text = "OFF [Space]"
-speedBtn.TextColor3 = Color3.new(1, 1, 1)
-speedBtn.TextScaled = true
-speedBtn.Font = Enum.Font.GothamSemibold
-speedBtn.AutoButtonColor = true
-speedBtn.Parent = speedFrame
-Instance.new("UICorner", speedBtn).CornerRadius = UDim.new(0, 6)
+local list = Instance.new("UIListLayout", main)
+list.Padding = UDim.new(0, 12)
+list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+list.SortOrder = Enum.SortOrder.LayoutOrder
 
--- ====================== FUNCTIONS ======================
--- Egg Collector
-local function isEgg(obj)
-    if not obj:IsA("BasePart") then return false end
-    local n = obj.Name:lower()
-    for _, k in ipairs(EGG_KEYWORDS) do
-        if n:find(k) then return true end
-    end
-    return false
+local function createButton(name, order)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.fromOffset(230, 50)
+    btn.BackgroundColor3 = Color3.new(1, 1, 1)
+    btn.BackgroundTransparency = 0.85
+    btn.Text = name
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 14
+    btn.LayoutOrder = order
+    btn.Parent = main
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    return btn
 end
 
-local function autoCollect()
-    task.spawn(function()
-        while collecting do
-            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if not root then task.wait(0.3) continue end
+local killBtn = createButton("⚔️ KILL AURA: OFF", 1)
+local eggBtn = createButton("🥚 AUTO EGG: OFF", 2)
+local speedBtn = createButton("⚡ SPEED: OFF", 3)
 
-            local eggs = {}
-            for _, obj in ipairs(Workspace:GetDescendants()) do
-                if isEgg(obj) and obj.Transparency < 0.85 then
-                    table.insert(eggs, obj)
-                end
-            end
+-- ====================== [ منطق الضرب التلقائي القوي ] ======================
 
-            if #eggs == 0 then task.wait(0.5) continue end
-
-            table.sort(eggs, function(a, b)
-                return (a.Position - root.Position).Magnitude < (b.Position - root.Position).Magnitude
-            end)
-
-            local target = eggs[1]
+task.spawn(function()
+    while task.wait() do -- أسرع تكرار ممكن
+        if killAura then
             pcall(function()
-                root.CFrame = CFrame.new(target.Position + Vector3.new(0, 3, 0))
+                local targetPlayer = nil
+                local shortestDistance = math.huge
+                
+                -- البحث عن الهدف
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= player and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                        local distance = (player.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            targetPlayer = p
+                        end
+                    end
+                end
+                
+                if targetPlayer then
+                    -- 1. الانتقال وراء الهدف مباشرة
+                    player.Character.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, 2.5)
+                    
+                    -- 2. إمساك السلاح تلقائياً (من الـ Backpack)
+                    local tool = player.Character:FindFirstChildOfClass("Tool")
+                    if not tool then
+                        local backpackTool = player.Backpack:FindFirstChildOfClass("Tool")
+                        if backpackTool then
+                            backpackTool.Parent = player.Character
+                        end
+                    end
+                    
+                    -- 3. الضرب التلقائي (Force Activate)
+                    tool = player.Character:FindFirstChildOfClass("Tool")
+                    if tool then
+                        tool:Activate() -- يضرب
+                    end
+                end
             end)
-            
-            collectedCount += 1
-            counter.Text = "Collected: " .. collectedCount
-            task.wait(0.05)
         end
-    end)
-end
-
--- Speed/Jump
-local function updateSpeedGUI()
-    if isEnabled then
-        speedBtn.Text = "ON [Space] ⚡"
-        speedBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 0)
-        speedStroke.Color = Color3.fromRGB(0, 180, 0)
-    else
-        speedBtn.Text = "OFF [Space]"
-        speedBtn.BackgroundColor3 = Color3.fromRGB(140, 0, 0)
-        speedStroke.Color = Color3.fromRGB(180, 0, 0)
     end
-end
+end)
 
-local speedLoop
-local function applySpeed(humanoid)
-    if humanoid then humanoid.WalkSpeed = isEnabled and DESIRED_SPEED or DEFAULT_SPEED end
-end
-
-local function startSpeedLoop(character)
-    if speedLoop then speedLoop:Disconnect() end
-    local humanoid = character:WaitForChild("Humanoid")
-    applySpeed(humanoid)
-    speedLoop = RunService.Heartbeat:Connect(function()
-        if humanoid and humanoid.Parent then
-            local target = isEnabled and DESIRED_SPEED or DEFAULT_SPEED
-            if humanoid.WalkSpeed ~= target then applySpeed(humanoid) end
-        else
-            speedLoop:Disconnect()
-            speedLoop = nil
+-- ====================== [ تجميع البيض ] ======================
+task.spawn(function()
+    while task.wait(0.2) do
+        if collecting then
+            pcall(function()
+                for _, obj in ipairs(Workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") then
+                        for _, key in ipairs(EGG_KEYWORDS) do
+                            if obj.Name:lower():find(key) and obj.Transparency < 1 then
+                                player.Character.HumanoidRootPart.CFrame = obj.CFrame
+                                task.wait(0.1)
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
         end
-    end)
-end
-
-local function doInfiniteJump()
-    if not isEnabled then return end
-    local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid and humanoid.Health > 0 then
-        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
-end
+end)
 
--- ====================== EVENTS ======================
--- Egg Collector Toggle
+-- ====================== [ التحكم ] ======================
+
+killBtn.MouseButton1Click:Connect(function()
+    killAura = not killAura
+    killBtn.Text = killAura and "⚔️ KILL AURA: ACTIVE" or "⚔️ KILL AURA: OFF"
+    killBtn.BackgroundColor3 = killAura and Color3.fromRGB(255, 50, 50) or Color3.new(1,1,1)
+end)
+
 eggBtn.MouseButton1Click:Connect(function()
     collecting = not collecting
-    if collecting then
-        eggBtn.Text = "⏹ STOP COLLECTING"
-        eggBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 0)
-        autoCollect()
-    else
-        eggBtn.Text = "🥚 START COLLECTING"
-        eggBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-    end
+    eggBtn.Text = collecting and "🥚 EGG: ACTIVE" or "🥚 EGG: OFF"
+    eggBtn.BackgroundColor3 = collecting and Color3.fromRGB(50, 200, 50) or Color3.new(1,1,1)
 end)
 
--- Speed/Jump Toggle
 speedBtn.MouseButton1Click:Connect(function()
-    isEnabled = not isEnabled
-    updateSpeedGUI()
-    if player.Character then
-        local hum = player.Character:FindFirstChildOfClass("Humanoid")
-        applySpeed(hum)
+    speedOn = not speedOn
+    speedBtn.Text = speedOn and "⚡ SPEED: ON" or "⚡ SPEED: OFF"
+    if player.Character and player.Character:FindFirstChild("Humanoid") then
+        player.Character.Humanoid.WalkSpeed = speedOn and DESIRED_SPEED or 16
     end
 end)
-
--- Space for Jump
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.Space then doInfiniteJump() end
-end)
-
--- Character Added
-player.CharacterAdded:Connect(function(char)
-    if collecting then autoCollect() end
-    startSpeedLoop(char)
-end)
-
--- ====================== INIT ======================
-updateSpeedGUI()
-if player.Character then startSpeedLoop(player.Character) end
